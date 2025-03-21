@@ -1,14 +1,17 @@
 # AlphaZero Tetris
 
 Most implementations of Reinforcement Learning applied to Tetris have been based on hand-crafted feature vectors[^1][^2] and
-reduction of the action space (action-grouping)[^3], while training agents on the full observation- and action-space has failed [^4]. This project makes no such assumptions and uses the AlphaZero algorithm
+reduction of the action space (action-grouping)[^3], while training agents on the full observation- and action-space has failed [^4].
+
+This project makes no such assumptions and uses the AlphaZero algorithm
 to learn to play Tetris from raw observations, with the full action space, as a human player would. It is configurable 
 to use any tree policy for the Monte-Carlo Tree Search, like Thompson Sampling, UCB, or other custom policies for experimentation beyond PUCT. The training 
 script is designed in an on-policy & sequential way and an agent can be trained using a CPU or GPU on a single machine.
 
+![AlphaZero Gameplay](documentation/az-replay.gif)
+
 Examples of gameplay of trained agents can be found in the `./documentation` directory and in the W&B report linked below.
 Additionally, one may use the custom-viewer to visualize the game state and the moves made by the agent in detail: [Rollout viewer](https://max-we.github.io/alphazero-tetris/).
-
 
 - [^1] Algorta, S., & Şimşek, Ö. (2019, May 5). The game of Tetris in machine learning. arXiv.org. [https://arxiv.org/abs/1905.01652](https://arxiv.org/abs/1905.01652)
 - [^2] Vietnh. (2023, April 3). GitHub - vietnh1009/Tetris-deep-Q-learning-pytorch: Deep Q-learning for playing tetris game. GitHub. [https://github.com/vietnh1009/Tetris-deep-Q-learning-pytorch](https://github.com/vietnh1009/Tetris-deep-Q-learning-pytorch)
