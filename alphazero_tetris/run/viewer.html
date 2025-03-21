@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Tetris Rollout Viewer</title>
+		<!-- React -->
+		<script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+		<script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+		<script type="text/javascript" src="https://unpkg.com/babel-standalone@6.26.0/babel.js"></script>
+		<!-- Tailwind -->
+		<script src="https://unpkg.com/@tailwindcss/browser@4.0.0"></script>
+		<!-- Recharts -->
+		<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+		<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+		<script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+		<script src="https://unpkg.com/recharts@2.12.2/umd/Recharts.js"></script>
+		<!-- Font Awesome -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" />
+
+		<style>
+			.tetris-container {
+				width: 100%;
+				aspect-ratio: 1/2;
+				min-width: 200px;
+				max-width: 400px;
+			}
+
+			.board-cell {
+				width: 100%;
+				position: relative;
+			}
+
+			.cell-content {
+				position: absolute;
+				top: 1px;
+				right: 1px;
+				bottom: 1px;
+				left: 1px;
+			}
+
+			.cell-active {
+				background-color: #3b82f6;
+			}
+			.cell-placed {
+				background-color: #6b7280;
+			}
+			.cell-empty {
+				background-color: #e5e7eb;
+			}
+		</style>
+	</head>
+	<body class="bg-gray-100">
+		<div id="root"></div>
+
+		<script type="text/babel">
+			const { useState, useEffect, useCallback, useMemo } = React;
+			const {
+				ComposedChart,
+				LineChart,
+				BarChart,
+				Area,
+				Line,
+				Bar,
+				XAxis,
+				YAxis,
+				Tooltip,
+				Legend,
+				ResponsiveContainer,
+				ReferenceLine,
+			} = window.Recharts;
+
+			const DEFAULT_ROLLOUT_PATH = "rollout.json";
+
+			const color_primary = "#3B82F6";
+			const color_variance = "#FF6B6B";
+			const color_value = "#4ECDC4";
+			const color_reward = "#FF9F1C";
+			const color_visits = "#45B7D1";
+
+			// Function to load file from path
+			const loadFileFromPath = async (path) => {
+				try {
+					const response = await fetch(path);
+					if (!response.ok)
+						throw new Error(`HTTP error! status: ${response.status}`);
+					const data = await response.json();
+					return data;
+				} catch (error) {
+					console.error("Error loading default file:", error);
+					return null;
+				}
+			};
+
+			// Function to load uploaded file
+			const loadUploadedFile = async (file) => {
+				const reader = new FileReader();
+				return new Promise((resolve, reject) => {
+					reader.onload = (e) => resolve(JSON.parse(e.target.result));
+					reader.onerror = (e) => reject(e);
+					reader.readAsText(file);
+				});
+			};
+
+			const TetrisBoard = React.memo(({ observations, currentFrame }) => (
+				<div className="tetris-container mx-auto">
+					<div className="grid grid-cols-10 gap-0 border border-gray-700 h-full">
+						{observations ? (
+							observations[currentFrame].map((row, i) =>
+								row.map((cell, j) => (
+									<div key={`${i}-${j}`} className="board-cell">
+										<div
+											className={`cell-content ${
+												cell === -1
+													? "cell-active"
+													: cell === 1
+													? "cell-placed"
+													: "cell-empty"
+											}`}
+										/>
+									</div>
+								))
+							)
+						) : (
+							<span>Loading...</span>
+						)}
+					</div>
+				</div>
+			));
+
+			const PlaybackControls = React.memo(
+				({
+					currentFrame,
+					isPlaying,
+					playbackSpeed,
+					maxFrames,
+					onFrameChange,
+					onPlayPause,
+					onSpeedChange,
+				}) => (
+					<div className="grid grid-row-3 gap-2 p-4">
+						<div className="flex flex-row justify-between items-center">
+							<button
+								onClick={() => onFrameChange(Math.max(0, currentFrame - 1))}
+								className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+							>
+								<i className="fa-solid fa-arrow-left"></i>
+							</button>
+
+							<button
+								onClick={onPlayPause}
+								className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+							>
+								{isPlaying ? (
+									<i className="fa-solid fa-pause"></i>
+								) : (
+									<i className="fa-solid fa-play"></i>
+								)}
+							</button>
+
+							<button
+								onClick={() =>
+									onFrameChange(Math.min(maxFrames - 1, currentFrame + 1))
+								}
+								className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+							>
+								<i className="fa-solid fa-arrow-right"></i>
+							</button>
+						</div>
+
+						<div className="flex flex-row justify-between items-center">
+							<button
+								onClick={() => onSpeedChange(Math.max(0.25, playbackSpeed / 2))}
+								className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+							>
+								<i className="fa-solid fa-backward"></i>
+							</button>
+							<span className="px-4 py-2 text-center">{playbackSpeed}x</span>
+							<button
+								onClick={() => onSpeedChange(Math.min(32, playbackSpeed * 2))}
+								className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+							>
+								<i className="fa-solid fa-forward"></i>
+							</button>
+						</div>
+
+						<div className="flex flex-col space-y-2">
+							<input
+								type="range"
+								min="0"
+								max={maxFrames - 1}
+								value={currentFrame}
+								onChange={(e) => onFrameChange(parseInt(e.target.value))}
+								className="w-full"
+							/>
+							<div className="text-sm text-gray-600 text-center">
+								Step: {currentFrame + 1} / {maxFrames}
+							</div>
+						</div>
+					</div>
+				)
+			);
+
+			const StatePanel = React.memo(({ rolloutData, currentFrame }) => (
+				<div className="bg-white p-4 rounded shadow">
+					<div className="grid grid-cols-2 gap-4">
+						<div className="p-2 bg-cyan-50 rounded">
+							Value
+							<br /> {rolloutData.root.values[currentFrame].toFixed(1)}
+						</div>
+						<div className="p-2 bg-red-50 rounded">
+							Variance
+							<br /> {rolloutData.root.variances[currentFrame].toFixed(1)}
+						</div>
+						<div className="p-2 bg-orange-50 rounded">
+							Reward
+							<br /> {rolloutData.game.rewards[currentFrame]}
+						</div>
+						<div className="p-2 bg-gray-50 rounded">
+							Score
+							<br /> {rolloutData.game.scores[currentFrame]}
+						</div>
+						<div className="p-2 bg-gray-50 rounded">
+							Lines
+							<br /> {rolloutData.game.lines_cleared[currentFrame]}
+						</div>
+
+						<div className="p-2 bg-gray-50 rounded">
+							Terminated
+							<br /> {rolloutData.game.terminated[currentFrame] ? "Yes" : "No"}
+						</div>
+					</div>
+				</div>
+			));
+
+			const Chart = React.memo(({ data, syncId, onClick, children }) => (
+				<div className="h-52">
+					<ResponsiveContainer>
+						{React.cloneElement(children, { data, syncId, onClick })}
+					</ResponsiveContainer>
+				</div>
+			));
+
+			const FileUpload = React.memo(function FileUpload({
+				onFileUpload,
+				onClearData,
+				rolloutData,
+			}) {
+				return (
+					<div className="my-8 p-6 bg-white rounded-lg shadow-md">
+						<div className="flex items-center gap-4">
+							<label className="flex flex-col">
+								<span className="mb-2 text-gray-700">
+									Select rollout.json file:
+								</span>
+								<input
+									type="file"
+									accept=".json"
+									onChange={onFileUpload}
+									className="block w-full text-sm text-gray-500
+                                        file:mr-4 file:py-2 file:px-4
+                                        file:rounded-md file:border-0
+                                        file:text-sm file:font-semibold
+                                        file:bg-blue-50 file:text-blue-700
+                                        hover:file:bg-blue-100"
+								/>
+							</label>
+							<button
+								onClick={onClearData}
+								className="px-4 py-2 text-sm text-red-600 hover:text-red-700
+                                         border border-red-600 rounded hover:bg-red-50"
+							>
+								Clear Data
+							</button>
+						</div>
+						{rolloutData && (
+							<div className="mt-2 text-sm text-gray-600">
+								Loaded file with {rolloutData.metadata.timesteps} frames
+							</div>
+						)}
+					</div>
+				);
+			});
+
+			const EpisodeStatistics = React.memo(function CurrentState({
+				parentData,
+				gameData,
+				currentFrame,
+				onChartClick,
+			}) {
+				return (
+					<div className="bg-white p-4 rounded shadow">
+						<h3 className="font-bold mb-2">Current State</h3>
+						<div className="space-y-8">
+							<Chart data={parentData} syncId="parentId" onClick={onChartClick}>
+								<LineChart>
+									<XAxis dataKey="timestep" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Line
+										dataKey="value"
+										type="monotone"
+										stroke={color_value}
+										dot={false}
+										name="Value"
+									/>
+									<Line
+										dataKey="variance"
+										type="monotone"
+										stroke={color_variance}
+										dot={false}
+										name="Variance"
+									/>
+									<ReferenceLine x={currentFrame} stroke={color_primary} />
+								</LineChart>
+							</Chart>
+							<Chart data={gameData} syncId="parentId" onClick={onChartClick}>
+								<ComposedChart>
+									<defs>
+										<linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="5%" stopColor={"gray"} stopOpacity={0.8}/>
+											<stop offset="95%" stopColor="#ca9c82" stopOpacity={0}/>
+										</linearGradient>
+									</defs>
+									<XAxis dataKey="timestep"/>
+									<YAxis/>
+									<Tooltip/>
+									<Legend/>
+									<Area
+										dataKey="score"
+										name="Score"
+										stroke={"gray"}
+										fill={"url(#colorScore)"}
+										fillOpacity={0.2}
+									/>
+									<Bar dataKey="reward" name="Reward" fill={color_reward}/>
+									<ReferenceLine x={currentFrame} stroke={color_primary}/>
+								</ComposedChart>
+							</Chart>
+						</div>
+					</div>
+				);
+			});
+
+			const ChildrenStatistics = React.memo(function ChildrenStatistics({
+				childrenData,
+			}) {
+				return (
+					<div className="bg-white p-4 rounded shadow">
+						<h3 className="font-bold mb-4">Children Statistics</h3>
+						<div className="grid grid-cols-2 gap-4">
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar dataKey="value" fill={color_value} name="Value" />
+								</BarChart>
+							</Chart>
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar
+										dataKey="variance"
+										fill={color_variance}
+										name="Variance"
+									/>
+								</BarChart>
+							</Chart>
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar dataKey="visits" fill={color_visits} name="Visits" />
+								</BarChart>
+							</Chart>
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar dataKey="reward" fill={color_reward} name="Reward" />
+								</BarChart>
+							</Chart>
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar dataKey="discount" fill={"grey"} name="Discount" />
+								</BarChart>
+							</Chart>
+							<Chart data={childrenData} syncId="childrenId">
+								<BarChart>
+									<XAxis dataKey="action" />
+									<YAxis />
+									<Tooltip />
+									<Legend />
+									<Bar dataKey="policy" fill={"grey"} name="Policy score" />
+								</BarChart>
+							</Chart>
+						</div>
+					</div>
+				);
+			});
+
+			const TetrisViewer = function TetrisViewer() {
+				const [rolloutData, setRolloutData] = useState(null);
+				const [currentFrame, setCurrentFrame] = useState(0);
+				const [isPlaying, setIsPlaying] = useState(false);
+				const [playbackSpeed, setPlaybackSpeed] = useState(1);
+				const [isLoading, setIsLoading] = useState(true);
+
+				// Load default file on component mount
+				useEffect(() => {
+					const loadDefault = async () => {
+						setIsLoading(true);
+						const data = await loadFileFromPath(DEFAULT_ROLLOUT_PATH);
+						if (data) {
+							setRolloutData(data);
+						}
+					};
+					loadDefault();
+				}, []);
+
+				useEffect(() => {
+					if (rolloutData) {
+						setIsLoading(false);
+						console.log(rolloutData);
+					}
+				}, [rolloutData]);
+
+				// Handle file upload
+				const handleFileUpload = useCallback(async (event) => {
+					const file = event.target.files[0];
+					if (file) {
+						try {
+							setIsLoading(true);
+							const data = await loadUploadedFile(file);
+							setRolloutData(data);
+							setCurrentFrame(0);
+							setIsPlaying(false);
+						} catch (error) {
+							console.error("Error loading file:", error);
+							alert(
+								"Error loading file. Please check the console for details."
+							);
+						} finally {
+							setIsLoading(false);
+						}
+					}
+				}, []);
+
+				const handleClearData = useCallback(() => {
+					setRolloutData(null);
+					setCurrentFrame(0);
+					setIsPlaying(false);
+				}, []);
+
+				useEffect(() => {
+					if (!isPlaying || !rolloutData) return;
+
+					const interval = setInterval(() => {
+						setCurrentFrame((prev) => {
+							if (prev >= rolloutData.metadata.timesteps - 1) {
+								setIsPlaying(false);
+								return prev;
+							}
+							return prev + 1;
+						});
+					}, 1000 / playbackSpeed);
+
+					return () => clearInterval(interval);
+				}, [isPlaying, playbackSpeed, rolloutData]);
+
+				const actionToName = useCallback((action) => {
+					switch (action) {
+						case 0:
+							return "←";
+						case 1:
+							return "→";
+						case 2:
+							return "↓";
+						case 3:
+							return "↻";
+						case 4:
+							return "↺";
+						case 5:
+							return "-";
+						default:
+							return "↡";
+					}
+				}, []);
+
+				const childrenData = useMemo(() => {
+					if (rolloutData) {
+						return rolloutData.tree.children_values[currentFrame].map(
+							(value, idx) => ({
+								action: actionToName(idx),
+								value,
+								variance:
+									rolloutData.tree.children_variances[currentFrame][idx],
+								visits: rolloutData.tree.children_visits[currentFrame][idx],
+								reward: rolloutData.tree.children_rewards[currentFrame][idx],
+								discount: rolloutData.tree.children_discounts[currentFrame][idx],
+								policy: rolloutData.tree.children_policy_scores[currentFrame][idx],
+							})
+						);
+					}
+				}, [rolloutData, currentFrame]);
+
+				const parentData = useMemo(() => {
+					if (rolloutData) {
+						return rolloutData.root.values.map((value, idx) => ({
+							timestep: idx,
+							value: value,
+							variance: rolloutData.root.variances[idx],
+						}));
+					}
+				}, [rolloutData]);
+
+				const gameData = useMemo(() => {
+					if (rolloutData) {
+						return rolloutData.game.rewards.map((reward, idx) => ({
+							timestep: idx,
+							reward: reward,
+							score: rolloutData.game.scores[idx],
+							lines_cleared: rolloutData.game.lines_cleared[idx],
+						}));
+					}
+				}, [rolloutData]);
+
+				const chartClickSetTimestep = useCallback((event) => {
+					if (event.activeLabel) {
+						setCurrentFrame(event.activeLabel);
+					}
+				}, []);
+
+				return (
+					<div className="max-w-7xl mx-auto p-4">
+						{isLoading ? (
+							<div className="text-center p-8">Loading...</div>
+						) : rolloutData ? (
+							<div className="grid grid-cols-4 gap-4">
+								<div className="col-span-1">
+									<div className="flex flex-col justify-between w-fill h-full">
+										<TetrisBoard
+											observations={rolloutData.root.observations}
+											currentFrame={currentFrame}
+										/>
+										<PlaybackControls
+											currentFrame={currentFrame}
+											isPlaying={isPlaying}
+											playbackSpeed={playbackSpeed}
+											maxFrames={rolloutData.metadata.timesteps}
+											onFrameChange={setCurrentFrame}
+											onPlayPause={() => setIsPlaying(!isPlaying)}
+											onSpeedChange={(speed) => setPlaybackSpeed(speed)}
+										/>
+										<StatePanel
+											rolloutData={rolloutData}
+											currentFrame={currentFrame}
+										/>
+									</div>
+								</div>
+								<div className="col-span-3">
+									<div className="space-y-4">
+										<EpisodeStatistics
+											parentData={parentData}
+											gameData={gameData}
+											currentFrame={currentFrame}
+											onChartClick={chartClickSetTimestep}
+										/>
+										<ChildrenStatistics childrenData={childrenData} />
+									</div>
+								</div>
+							</div>
+						) : (
+							<div className="text-center p-8">
+								Please upload a rollout JSON file to begin
+							</div>
+						)}
+						<FileUpload
+							onFileUpload={handleFileUpload}
+							onClearData={handleClearData}
+							rolloutData={rolloutData}
+						/>
+					</div>
+				);
+			};
+
+			const root = ReactDOM.createRoot(document.getElementById("root"));
+			root.render(<TetrisViewer />);
+		</script>
+	</body>
+</html>

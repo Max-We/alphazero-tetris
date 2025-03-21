@@ -1,0 +1,7 @@
+tests
+logs
+**wandb
+.idea
+.git
+.gitignore
+alphazero_tetris/run/examine_out
