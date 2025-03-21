@@ -38,6 +38,8 @@ This project provides a few examples, such as PUCT, UCT, a CLT-based policy, and
 
 This W&B report contains the results of training the AlphaZero and CLT-based agent: [W&B Tetris AlphaZero & CLT Policy](https://api.wandb.ai/links/go-apps-github/8vlgjurp)
 
+![W&B Report](documentation/training_result_puct_clt.png)
+
 An example of a game played (by the CLT-policy) can be visualized with the viewer: [Rollout viewer](https://max-we.github.io/alphazero-tetris/). Replay `mp4` files are also available in the `documentation` folder.
 
 By providing a model checkpoint and configuration, one can also generate replays using the `examine.py` script and visualize it with the viewer (also included as `viewer.html`)

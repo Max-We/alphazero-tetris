@@ -28,7 +28,7 @@ jobs:
       - name: Create deployment directory
         run: |
           mkdir -p deploy
-          cp ./tetris_zero/run/viewer.html deploy/index.html
+          cp ./alphazero_tetris/run/viewer.html deploy/index.html
           cp ./documentation/rollout.json deploy/rollout.json
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
