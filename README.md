@@ -43,7 +43,7 @@ This project provides a few examples, such as PUCT, UCT, a CLT-based policy, and
 
 ## Results
 
-This W&B report contains the results of training the AlphaZero and CLT-based agent: [W&B Tetris AlphaZero & CLT Policy](https://api.wandb.ai/links/go-apps-github/8vlgjurp)
+This W&B report contains the results of training the AlphaZero and CLT-based agent: [W&B Tetris AlphaZero & CLT Policy](https://api.wandb.ai/links/go-apps-github/8vlgjurp). Note that the training could be scaled up a lot.
 
 ![W&B Report](documentation/training_result_puct_clt.png)
 
