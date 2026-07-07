@@ -44,7 +44,7 @@ def collect_play_data(
         obs_batched = jnp.expand_dims(obs, axis=0)
         eval_root = eval_fn(rng_key_root, train_state, state_batched, obs_batched)
         root = RootFnOutput(state=state, value=eval_root.value, variance=eval_root.variance, observation=obs, prior_logits=eval_root.p)
-        policy_output = policy_fn(train_state, rng_key_policy, root, recurrent_fn, tree_policy_fn, config.num_simulations, config, temperature)
+        policy_output = policy_fn(train_state, rng_key_policy, root, recurrent_fn, tree_policy_fn, config.num_simulations, config, temperature, True)
         action = policy_output.action
 
         # Add experiences to replay buffer
@@ -66,7 +66,7 @@ def collect_play_data(
 
         _, new_state, new_obs = jax.lax.cond(
             terminated,
-            lambda rng: reset_fn(tetrominoes, rng_key),
+            lambda rng: reset_fn(tetrominoes, rng),
             lambda rng: (rng, step_state, step_obs),
             rng_key_reset
         )

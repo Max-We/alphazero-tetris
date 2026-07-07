@@ -185,7 +185,8 @@ def policy(
         tree_policy_fn: Callable,
         num_simulations: int,
         config: Config,
-        temperature: float
+        temperature: float,
+        use_dirichlet_noise: bool = True
 ) -> PolicyFnOutput:
     """Policy function for MCTS with priors and noise."""
     rng_key, dirichlet_rng_key, search_rng_key, action_rng_key = jax.random.split(rng_key, 4)
@@ -193,14 +194,14 @@ def policy(
     dirichlet_fraction = 0.25
     dirichlet_alpha = 10 / config.num_actions
 
-    # Adding Dirichlet noise.
-    noisy_logits = _get_logits_from_probs(
-      _add_dirichlet_noise(
-          dirichlet_rng_key,
-          jax.nn.softmax(jnp.squeeze(root.prior_logits, axis=0)),
-          dirichlet_fraction=dirichlet_fraction,
-          dirichlet_alpha=dirichlet_alpha))
-    root = root.replace(prior_logits=noisy_logits)
+    if use_dirichlet_noise:
+        noisy_logits = _get_logits_from_probs(
+          _add_dirichlet_noise(
+              dirichlet_rng_key,
+              jax.nn.softmax(jnp.squeeze(root.prior_logits, axis=0)),
+              dirichlet_fraction=dirichlet_fraction,
+              dirichlet_alpha=dirichlet_alpha))
+        root = root.replace(prior_logits=noisy_logits)
 
     search_tree = search(
       params=params,

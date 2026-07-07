@@ -127,6 +127,14 @@ def get_batch_from_replay_buffer(
     )
 
 
+def _mirror_action_probs(p: jnp.ndarray) -> jnp.ndarray:
+    if p.shape[-1] != 7:
+        raise ValueError(f"Expected 7 actions for mirrored augmentation, got {p.shape[-1]}")
+
+    # Functional env action order: left, right, down, ccw, cw, no-op, hard-drop.
+    mirror_permutation = jnp.array([1, 0, 2, 4, 3, 5, 6])
+    return p[..., mirror_permutation]
+
 
 @jax.jit
 def augment_replay_buffer(
@@ -139,11 +147,12 @@ def augment_replay_buffer(
     obs_reshaped = state.observation.reshape(-1, height, width)
     flipped_obs = jnp.flip(obs_reshaped, axis=2)  # Flip horizontally
     flipped_obs = flipped_obs.reshape(*obs_prefix, height, width)
+    flipped_p = _mirror_action_probs(state.p)
 
     return ReplayBufferState(
         value=jnp.concatenate([state.value, state.value], axis=0),
         variance=jnp.concatenate([state.variance, state.variance], axis=0),
-        p=jnp.concatenate([state.p, state.p], axis=0),
+        p=jnp.concatenate([state.p, flipped_p], axis=0),
         observation=jnp.concatenate([state.observation, flipped_obs], axis=0)
     )
 

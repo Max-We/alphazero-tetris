@@ -76,7 +76,7 @@ def collect_eval_play_data(
         eval_root = eval_fn(rng_key_root, train_state, state_batched, obs_batched)
         root = RootFnOutput(state=state, value=eval_root.value, variance=eval_root.variance, observation=obs, prior_logits=eval_root.p)
         # Get policy output
-        policy_output = policy_fn(train_state, rng_key_policy, root, recurrent_fn, tree_policy_fn, config.num_simulations, config, 0.0)
+        policy_output = policy_fn(train_state, rng_key_policy, root, recurrent_fn, tree_policy_fn, config.num_simulations, config, 0.0, False)
 
         # Step environment
         new_step = step_fn(tetrominoes, state, policy_output.action)

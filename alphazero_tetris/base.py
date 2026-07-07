@@ -118,7 +118,7 @@ RootFn = Callable[[Params, chex.Array, Any], RootFnOutput]
 EvalFn = Callable[[chex.PRNGKey, Params, Any, chex.Array], EvaluationFnOutput]
 
 PolicyFn = Callable[
-  [Params, chex.PRNGKey, RootFnOutput, RecurrentFn, Callable, int, Config, float],
+  [Params, chex.PRNGKey, RootFnOutput, RecurrentFn, Callable, int, Config, float, bool],
   PolicyFnOutput
 ]
 
